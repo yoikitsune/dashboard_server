@@ -1,0 +1,6 @@
+{
+    "exec1": "tsc && node --inspect ./dist/index.js",
+    "exec": "node -r ts-node/register --inspect ./src/index.ts",
+    "watch" : "./src/**",
+    "ext" : "ts"
+}
