@@ -16,8 +16,8 @@ export class MediaDownloader extends Command {
   constructor (public db:Database, public conf:Config) {
     super (db, conf);
     this.db.create ("/mediadownloader/media", []).forEach((data:any) => {
-      this.media [data.url] = Object.assign (new Medium (this, data.url), data);
-      this.media [data.url].check ();
+      this.media [data.id] = Object.assign (new Medium (this, data.id), data);
+      this.media [data.id].check ();
     });
     this.processes$.pipe (mergeMap(params => new Observable (sub => {
         params.process.subscribe ({
@@ -35,8 +35,8 @@ export class MediaDownloader extends Command {
   }
 
   _add (medium:Medium) {
-    if (!this.media [medium.url]) {
-      this.media[medium.url] = medium;
+    if (!this.media [medium.id]) {
+      this.media[medium.id] = medium;
       this.db.set ("/mediadownloader/media[]", medium);
       this.update$.next ({
         name:"add",
@@ -47,7 +47,7 @@ export class MediaDownloader extends Command {
 
   _change (medium:Medium) {
     if (medium) {
-      let index = this.db._db.getIndex("/mediadownloader/media", medium.url, "url");
+      let index = this.db._db.getIndex("/mediadownloader/media", medium.id, "id");
       this.db.set ("/mediadownloader/media["+index+"]", medium);
       this.update$.next ({
         name:"change",
@@ -56,15 +56,15 @@ export class MediaDownloader extends Command {
     }
   }
 
-  _del (url:string) {
-    let medium = this.media [url];
+  _del (id:string) {
+    let medium = this.media [id];
     if (medium) {
-      delete this.media [url];
-      let index = this.db._db.getIndex("/mediadownloader/media", url, "url");
+      delete this.media [id];
+      let index = this.db._db.getIndex("/mediadownloader/media", id, "id");
       this.db._db.delete ("/mediadownloader/media["+ index +"]");
       this.update$.next ({
         name:"delete",
-        data:url
+        data:id
       });
     }
   }
@@ -92,11 +92,14 @@ export class MediaDownloader extends Command {
         complete : () => {
           try {
             let data = JSON.parse (output);
-            let medium = new Medium (this, url);
+            let id = this.db.get ("/mediadownloader/nextId");
+            let medium = new Medium (this, id);
+            medium.url = url;
+            this.db.set ("/mediadownloader/nextId", ++id);
             medium.parseYtdlpData (data);
             this._add (medium);
+            sub.next (medium.id);
             sub.complete ();
-            console.log ("media complete")
           }
           catch (e:any) {
             sub.error (["Json parse error", e.message, output])
@@ -106,39 +109,39 @@ export class MediaDownloader extends Command {
     });
   }
 
-  initDownload (url:string, format:any):Observable<any> {
+  initDownload (id:string, format:any):Observable<any> {
     return concat (
       new Observable (sub => {
-        let medium = this.media [url];
+        let medium = this.media [id];
         medium.format = format;
         medium.status.state = "paused";
         this._change (medium);
         sub.complete ();
       }),
-      this.startDownload (url)
+      this.startDownload (id)
     );
   }
 
-  startDownload (url:string):Observable<any> {
+  startDownload (id:string):Observable<any> {
     return new Observable (sub => {
-      let medium = this.media [url];
+      let medium = this.media [id];
       try {
         medium.status.state = "init";
         medium.status.label = "En attente";
         this._change (medium);
         let regexp = /\[download\]\s*([^%]*)%\s*of\s*([^ ]*)\s*at\s*([^ ]*)\s*ETA\s*([^ ]*)/;
         new Observable (sub2 => {
-          if (!this.processes[url]) {
-            this.processes[url] = new VideoDownloader (this.conf);
+          if (!this.processes[id]) {
+            this.processes[id] = new VideoDownloader (this.conf);
             let process;
             if (medium.format.type == "audio")
-              process = this.processes[url].audio (url, medium.format);
+              process = this.processes[id].audio (medium.url, medium.format);
             else
-              process = this.processes[url].video (url, medium.format);
-            this.processes$.next ({ sub:sub2, process, url });
+              process = this.processes[id].video (medium.url, medium.format);
+            this.processes$.next ({ sub:sub2, process });
           }
           else
-            sub.error ("ongoing action on " + url);
+            sub.error ("ongoing action on " + medium.url);
         }).subscribe ({
           next : (data:any) => {
             var res = data.match (regexp);
@@ -194,26 +197,29 @@ export class MediaDownloader extends Command {
     });
   }
 
-  stopDownload (url: string) {
+  stopDownload (id: string) {
     return new Observable (sub => {
-      if (this.processes [url]) {
-        if (this.processes[url].kill ()) {
-          delete this.processes[url];
-          this.media [url].status.state = "paused";
-          this._change (this.media [url]);
+      if (this.processes [id]) {
+        if (this.processes[id].kill ()) {
+          delete this.processes[id];
+          this.media [id].status.state = "paused";
+          this._change (this.media [id]);
           sub.complete ();
         }
         else
           sub.error ("Cannot kill process");
       }
-      else
-        sub.error ("No existing process");
+      else {
+        this.media [id].status.state = "paused";
+        this._change (this.media [id]);
+        sub.complete ();
+      }
     });
   }
 
-  delete (url:string) {
+  delete (id:string) {
     return new Observable (sub => {
-      this._del (url);
+      this._del (id);
       sub.complete ();
     });
   }

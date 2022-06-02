@@ -1,27 +1,26 @@
-import express from 'express';
 import { Server } from 'ws';
 import { Observable } from 'rxjs';
 import { Database } from "./db";
 import { Config } from "./config";
 
-export class WebSocket {
-  app = express();
+export class WebSocket extends Server {
   commands:{[key:string]:Command} = {};
 
-  constructor (port:number, commands: {[key:string]:any}) {
+  constructor (commands: {[key:string]:any}) {
+    super ({ noServer : true });
+
     let db = new Database ("myDataBase");
     let config = new Config (db);
     for (var key in commands)
       this.commands [key] = new commands [key] (db, config);
     var clientId = 0;
-    const wsServer = new Server({ noServer: true });
-    wsServer.on('connection', socket => {
+
+    this.on('connection', socket => {
       socket.send (++clientId);
       let observers : any[] = [];
       socket.on('message', data => {
         try {
           var request = JSON.parse (data.toString());
-          console.log (request);
           if (request.command in this.commands) {
             let command = this.commands [request.command];
             let name = request.method as keyof typeof command & keyof Command;
@@ -54,24 +53,12 @@ export class WebSocket {
         observers.forEach(obs$ => {
           obs$.unsubscribe ();
         });
-        console.log ('close');
       });
     });
 
-    wsServer.on('close', () => {
+    this.on('close', () => {
       console.log ('server stopped');
     } );
-
-    this.app.use(express.static('../dashboard/dist/dashboard'))
-
-    var server = this.app.listen(port, () => {
-      console.log(`Websocket listening on port ${port}`)
-    })
-    server.on('upgrade', (request, socket, head) => {
-      wsServer.handleUpgrade(request, socket, head, socket => {
-        wsServer.emit('connection', socket, request);
-      });
-    });
   }
 }
 

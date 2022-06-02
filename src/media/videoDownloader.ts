@@ -41,7 +41,6 @@ export class VideoDownloader {
 
   exec (params:string[]) {
     return new Observable (sub => {
-      console.log (params);
       if (!this.process) {
         let errorBuffer : string = "";
         this.process = spawn(this.conf.get ("ytdlpPath"), params);
@@ -57,7 +56,6 @@ export class VideoDownloader {
         });
         this.process.on('close', (code) => {
           if (code == 0) {
-            console.log ("video complete");
             sub.complete ();
           }
           else if (code == null) {

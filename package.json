@@ -4,10 +4,12 @@
   "description": "",
   "main": "src/index.js",
   "scripts": {
-    "test": "node -r ts-node/register --inspect ./src/test.ts",
+    "test": "node -r ts-node/register --inspect-brk ./src/test.ts",
     "start": "ts-node ./src/index.ts",
     "live": "nodemon",
-    "debug": "tsc && node --inspect ./dist/index.js"
+    "debug": "tsc && node --inspect ./dist/index.js",
+    "build" : "tsc --build && pm2 start ./dist/index.js",
+    "delete" : "pm2 delete ./dist/index.js"
   },
   "author": "",
   "license": "ISC",

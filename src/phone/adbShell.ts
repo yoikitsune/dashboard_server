@@ -8,7 +8,6 @@ export class ADBShell {
     return new Observable (subscriber => {
       let process = spawn('adb', ['wait-for-device', "shell", 'settings', 'get', 'global', 'device_name']);
       let id:string;
-      console.log ("wait for device");
       process.stdout.on('data', (data:any) => {
         id = data.toString();
       });
@@ -19,13 +18,9 @@ export class ADBShell {
             console.log ("ADBShell Error : " + data.toString ());
           });
           process.on('close', (code:number) => {
-            if (code != 0) {
-              console.log ("closing " + code);
-            }
             subscriber.error ({id, message : "closing " + code});
           });
           id = id.substring(0, id.length-1);
-          console.log ("registering " + id);
           subscriber.next (id);
         }
         else
@@ -93,7 +88,6 @@ export class ADBShell {
       });
       process.stderr.on('data', (error:string) => {
         let message = error.toString()
-        console.log ("error " + message);
         sub.error (message);
       });
       process.on('close', (code:number) => {

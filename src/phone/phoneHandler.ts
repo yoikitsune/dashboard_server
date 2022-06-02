@@ -11,9 +11,11 @@ export class PhoneHandler extends Command {
   update$:Subject<any> = new Subject();
   processes$:Subject<any> = new Subject();
 
-  constructor (public db:Database, public conf:Config) {
+  constructor (db:Database, conf:Config) {
     super (db, conf);
     this._initPhones ();
+
+    // Queue for some processes like copy
     this.processes$.pipe (mergeMap(params => new Observable (subscriber => {
       params.process$.subscribe ({
         next : res => params.subscriber.next (res),

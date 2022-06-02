@@ -10,12 +10,12 @@ const BEST_AUDIO_FORMAT =  {
 
 
 export class Medium {
-  parent:any;
   title:string = "";
   thumbnail:string = "";
   formats:any[] = [];
   format:any;
   file = "";
+  url:string = "";
   status:any = {
     state : "noformat",
     label : "Format non selectionné",
@@ -25,7 +25,7 @@ export class Medium {
     ETA : ""
   };
 
-  constructor (parent:MediaDownloader, public url:string)  {
+  constructor (public parent:MediaDownloader, public id:string)  {
     Object.defineProperty(this, "parent", {
       enumerable : false,
       value : parent
@@ -82,15 +82,4 @@ export class Medium {
       }
     }
   }
-
-/*  toJSON (key:any) {
-    return ["url"];
-    if (key) {
-      return (key!="parent"this[key]
-      console.log ("key :", key);
-    }
-    else
-      return this;
-  }
-  */
 }
